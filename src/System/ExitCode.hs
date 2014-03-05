@@ -1,4 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+
 module System.ExitCode(
   -- * Data Type
   ExitCode
