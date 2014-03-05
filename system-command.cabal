@@ -43,6 +43,7 @@ library
 
   exposed-modules:
                     System.Command
+                    System.ExitCode
 
 test-suite doctests
   type:
