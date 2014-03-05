@@ -1,6 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module System.Command
+module System.Command {-
 (
   -- * Running sub-processes
   P.createProcess
@@ -27,7 +27,7 @@ module System.Command
 , getProcessExitCode
 , P.terminateProcess
 , module EC
-) where
+) -} where {-
 
 import qualified System.Exit as E(exitWith)
 import qualified System.Process as P(system, rawSystem, ProcessHandle, waitForProcess, getProcessExitCode, readProcessWithExitCode, shell, CreateProcess(..), createProcess, readProcess, terminateProcess, runInteractiveCommand, runInteractiveProcess, runProcess, StdStream(..), CmdSpec(..), runCommand, proc)
@@ -157,3 +157,4 @@ getProcessExitCode ::
   -> IO (Maybe ExitCode)
 getProcessExitCode =
   (fmap . fmap) (exitCode' #) . P.getProcessExitCode
+                        -}

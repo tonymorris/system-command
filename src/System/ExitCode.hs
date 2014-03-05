@@ -1,7 +1,8 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module System.ExitCode(
+module System.ExitCode {-(
   -- * Data Type
   ExitCode
   -- * ExitCode combinators
@@ -10,77 +11,79 @@ module System.ExitCode(
 , success
 , isSuccess
 , isFailure
-) where
+) -} where
 
-import qualified System.Exit as E(ExitCode(ExitSuccess, ExitFailure))
--- import qualified System.Process as P(system, rawSystem, ProcessHandle, waitForProcess, getProcessExitCode, readProcessWithExitCode, shell, CreateProcess(..), createProcess, readProcess, terminateProcess, runInteractiveCommand, runInteractiveProcess, runProcess, StdStream(..), CmdSpec(..), runCommand, proc)
-import Control.Exception(Exception, toException, fromException)
-import Control.Lens(Iso', iso, (#), (^.))
+import Control.Lens(Prism', Iso', prism', iso, (#), isn't)
 import Data.Bool(Bool, not)
 import Data.Data(Data, Typeable)
 import Data.Function((.))
-import Data.Functor(Functor(fmap))
-import Data.Monoid(Monoid(mempty, mappend))
+import Data.Maybe(Maybe(Just, Nothing))
 import Data.Semigroup(Semigroup((<>)))
 import Prelude(Read, Show, Eq((==)), Ord, Int)
 
 -- | The result of running a process
-newtype ExitCode =
-  ExitCode Int
-  deriving (Eq, Ord, Data, Show, Read, Typeable)
+data ExitCode a =
+  ExitFailure Int
+  | ExitSuccess a
+  deriving (Eq, Ord, Show, Read, Data, Typeable)
 
-instance Exception ExitCode where
-  toException =
-    toException . (^. exitCode')
-  fromException =
-    fmap (exitCode' #) . fromException
+instance Semigroup (ExitCode a) where
+  ExitFailure _ <> x =
+    x
+  ExitSuccess a <> _ =
+    ExitSuccess a
 
-instance Semigroup ExitCode where
-  (<>) =
-    mappend
+type ExitCode' =
+  ExitCode ()
 
-instance Monoid ExitCode where
-  mempty =
-    success
-  a `mappend` b =
-    if isSuccess a then b else a
-
--- | The isomorphism between an @ExitCode@ and an @Int@.
-exitCode ::
-  Iso' ExitCode Int
-exitCode =
-  iso
-    (\(ExitCode n) -> n)
-    ExitCode
-
--- | The isomorphism to @System.Exit#ExitCode@.
--- /Note: @ExitFailure 0@ is a success./
-exitCode' ::
-  Iso' ExitCode E.ExitCode
-exitCode' =
-  iso
-    (\(ExitCode n) -> if n == 0 then E.ExitSuccess else E.ExitFailure n)
+failure ::
+  Prism' Int (ExitCode a)
+failure =
+  prism'
     (\x -> case x of
-             E.ExitSuccess -> success
-             E.ExitFailure n -> exitCode # n)
+             ExitFailure n -> n
+             ExitSuccess _ -> 0)
+    (\n -> case n of
+             0 -> Nothing
+             _ -> Just (ExitFailure n))
 
-
--- | Construct a process result with the value @0@.
 success ::
-  ExitCode
+  Prism' (ExitCode a) a
 success =
-  exitCode # 0
+  prism'
+    ExitSuccess
+    (\x -> case x of
+             ExitFailure _ -> Nothing
+             ExitSuccess a -> Just a)
 
--- | Returns true if the given process result was constructed with the value @0@, otherwise false.
-isSuccess ::
-  ExitCode
-  -> Bool
-isSuccess (ExitCode n) =
-  n == 0
+empty ::
+  Iso' Int ExitCode'
+empty =
+  iso
+    (\n -> case n of
+             0 -> ExitSuccess ()
+             _ -> ExitFailure n)
+    (\x -> case x of
+             ExitFailure n -> n
+             ExitSuccess _ -> 0)
 
--- | Returns false if the given process result was constructed with the value @0@, otherwise true.
+success' ::
+  ExitCode'
+success' =
+  success # ()
+
 isFailure ::
-  ExitCode
+  ExitCode a
   -> Bool
 isFailure =
-  not . isSuccess
+  isn't success
+
+isSuccess ::
+  ExitCode a
+  -> Bool
+isSuccess =
+  not . isFailure
+
+newtype ExitCodeT f a =
+  ExitCodeT (f (ExitCode a))
+
