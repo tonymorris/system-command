@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module System.Command
 (
@@ -47,16 +48,24 @@ module System.Command
 , inDirectory'
 ) where
 
-import qualified System.Exit as E
-import qualified System.Process as P
-import System.Directory
-import Data.Data
-import Data.Monoid
-import Control.Arrow
-import Control.Exception
-import Control.Monad
-import Prelude hiding (foldr)
-import Data.Foldable
+import qualified System.Exit as E(exitWith, ExitCode(ExitSuccess, ExitFailure))
+import qualified System.Process as P(system, rawSystem, ProcessHandle, waitForProcess, getProcessExitCode, readProcessWithExitCode, shell, CreateProcess(..), createProcess, readProcess, terminateProcess, runInteractiveCommand, runInteractiveProcess, runProcess, StdStream(..), CmdSpec(..), runCommand, proc)
+import System.Directory(getCurrentDirectory, setCurrentDirectory)
+import Data.Bool(Bool, not)
+import Data.Data(Data, Typeable)
+import Data.Function((.), const, flip)
+import Data.Functor(Functor(fmap))
+import Data.List((++))
+import Data.Maybe(Maybe)
+import Data.Monoid(Monoid(mempty, mappend))
+import Data.String(String)
+import Control.Arrow(first)
+import Control.Exception(Exception, toException, fromException, finally)
+import Control.Monad(Monad(return), when, void, (>>))
+import System.IO(IO)
+import System.FilePath(FilePath)
+import Prelude(Read(readsPrec), Show(show), Eq((==)), Ord, Int)
+import Data.Foldable(Foldable(foldr))
 
 -- | The result of running a process
 newtype ExitCode =
@@ -65,7 +74,7 @@ newtype ExitCode =
 
 instance Read ExitCode where
   readsPrec n s =
-    first exitCode `map` readsPrec n s
+    first exitCode `fmap` readsPrec n s
 
 instance Show ExitCode where
   show (ExitCode n) =
