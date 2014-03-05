@@ -2,8 +2,10 @@
 
 module System.ExitCodeAnd(
   ExitCodeAndT
+, ExitCodeT
 , IOExitCodeAndT
 , ExitCodeAnd
+, ExitCode'
 ) where
 
 import Control.Applicative(Applicative((<*>), pure), liftA2)
@@ -27,8 +29,26 @@ newtype ExitCodeAndT f a =
 type ExitCodeAnd a =
   ExitCodeAndT Identity a
 
+type ExitCodeT f =
+  ExitCodeAndT f ()
+
+type ExitCode' =
+  ExitCodeAnd ()
+
 type IOExitCodeAndT a =
   ExitCodeAndT IO a
+
+-- Iso' (ExitCodeAndT f a) (f (ExitCode, a))
+-- Iso' (ExitCodeAnd a) (ExitCode, a)
+-- Iso' (ExitCodeT f) (f ExitCode)
+-- Iso' ExitCode' ExitCode
+-- Lens (ExitCodeAnd a) (ExitCodeAnd b) a b
+-- Lens' (ExitCodeAnd a) ExitCode
+-- Functor f => ExitCodeAndT f a -> ExitCodeAndT f ExitCode
+-- exitSuccessAnd :: Functor f => f a -> ExitCodeAndT f a
+-- exitFailureAnd :: Functor f => Int -> f a -> ExitCodeAndT f a
+-- liftExitCodeAnd :: Applicative f => ExitCodeAnd a -> ExitCodeAndT f a
+-- tell :: Functor f => f ExitCode -> ExitCodeAndT f ()
 
 instance Monad f => Semigroup (ExitCodeAndT f a) where
   ExitCodeAndT a <> ExitCodeAndT b =
