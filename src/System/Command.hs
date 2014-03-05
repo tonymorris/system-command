@@ -27,7 +27,6 @@ module System.Command
 , getProcessExitCode
 , P.terminateProcess
 , module EC
-, module ECA
 ) where
 
 import qualified System.Exit as E(exitWith)
@@ -41,7 +40,6 @@ import System.IO(IO)
 import System.FilePath(FilePath)
 import Prelude(Read, Show, Eq((==)), Ord, Int)
 import System.ExitCode as EC
-import System.ExitCode as ECA
 
 -- | Computation 'exitWith' @code@ throws 'ExitCode' @code@.
 -- Normally this terminates the program, returning @code@ to the

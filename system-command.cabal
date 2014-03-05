@@ -45,7 +45,6 @@ library
   exposed-modules:
                     System.Command
                     System.ExitCode
-                    System.ExitCodeAnd
 
 test-suite doctests
   type:
