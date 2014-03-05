@@ -1,5 +1,5 @@
 name:               system-command
-version:            0.0.8
+version:            0.0.9
 license:            BSD3
 license-file:       LICENSE
 author:             Tony Morris <ʇǝu˙sıɹɹoɯʇ@ןןǝʞsɐɥ>
@@ -8,14 +8,14 @@ copyright:          Copyright (C) 2009-2014 Tony Morris, Ben Sinclair
 synopsis:           A replacement for System.Exit and System.Process
 category:           System
 description:        Specifically, this library replaces @System.Exit.ExitCode@ with an abstract data type.
-homepage:           https://github.com/tonymorris/command
-bug-reports:        https://github.com/tonymorris/command/issues
+homepage:           https://github.com/tonymorris/system-command
+bug-reports:        https://github.com/tonymorris/system-command/issues
 cabal-version:      >= 1.10
 build-type:         Custom
 
 source-repository   head
   type:             git
-  location:         git@github.com:tonymorris/command.git
+  location:         git@github.com:tonymorris/system-command.git
 
 flag                small_base
   description:      Choose the new, split-up base package.
