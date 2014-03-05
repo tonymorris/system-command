@@ -6,18 +6,19 @@ module System.ExitCodeAnd(
 , ExitCodeAnd
 ) where
 
-import Control.Applicative
+import Control.Applicative(Applicative((<*>), pure), liftA2)
 import Control.Monad
-import Control.Monad.Trans.Class
-import Data.Functor.Apply
-import Data.Functor.Alt
-import Data.Functor.Bind
-import Data.Functor.Bind.Trans
-import Data.Functor.Identity
-import Data.Monoid
-import System.ExitCode
+import Control.Monad.IO.Class(MonadIO(liftIO))
+import Control.Monad.Trans.Class(MonadTrans(lift))
+import Data.Function((.))
+import Data.Functor.Apply(Apply((<.>)))
+import Data.Functor.Alt(Alt((<!>)), liftF2)
+import Data.Functor.Bind(Bind((>>-)))
+import Data.Functor.Bind.Trans(BindTrans(liftB))
+import Data.Functor.Identity(Identity)
+import Data.Monoid(mappend)
+import System.ExitCode(ExitCode, isSuccess, success)
 import System.IO(IO)
-import Prelude
 
 newtype ExitCodeAndT f a =
   ExitCodeAndT (f (ExitCode, a))
@@ -76,3 +77,7 @@ instance BindTrans ExitCodeAndT where
 instance MonadTrans ExitCodeAndT where
   lift =
     ExitCodeAndT . liftM ((,) success)
+
+instance MonadIO f => MonadIO (ExitCodeAndT f) where
+  liftIO =
+    lift . liftIO
