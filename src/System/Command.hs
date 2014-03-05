@@ -24,6 +24,7 @@ module System.Command
 , ExitCode
   -- * ExitCode combinators
 , exitCode
+, exitCode'
 , success
 , isSuccess
 , isFailure
@@ -39,7 +40,7 @@ module System.Command
 import qualified System.Exit as E(exitWith, ExitCode(ExitSuccess, ExitFailure))
 import qualified System.Process as P(system, rawSystem, ProcessHandle, waitForProcess, getProcessExitCode, readProcessWithExitCode, shell, CreateProcess(..), createProcess, readProcess, terminateProcess, runInteractiveCommand, runInteractiveProcess, runProcess, StdStream(..), CmdSpec(..), runCommand, proc)
 import Control.Exception(Exception, toException, fromException)
-import Control.Lens(Iso', iso, (#))
+import Control.Lens(Iso', iso, (#), (^.))
 import Data.Bool(Bool, not)
 import Data.Data(Data, Typeable)
 import Data.Function((.))
@@ -59,9 +60,9 @@ newtype ExitCode =
 
 instance Exception ExitCode where
   toException =
-    toException . toExitCode
+    toException . (^. exitCode')
   fromException =
-    fmap fromExitCode . fromException
+    fmap (exitCode' #) . fromException
 
 instance Semigroup ExitCode where
   (<>) =
@@ -80,6 +81,18 @@ exitCode =
   iso
     (\(ExitCode n) -> n)
     ExitCode
+
+-- | The isomorphism to @System.Exit#ExitCode@.
+-- /Note: @ExitFailure 0@ is a success./
+exitCode' ::
+  Iso' ExitCode E.ExitCode
+exitCode' =
+  iso
+    (\(ExitCode n) -> if n == 0 then E.ExitSuccess else E.ExitFailure n)
+    (\x -> case x of
+             E.ExitSuccess -> success
+             E.ExitFailure n -> exitCode # n)
+
 
 -- | Construct a process result with the value @0@.
 success ::
@@ -126,7 +139,7 @@ exitWith ::
   ExitCode
   -> IO a
 exitWith =
-  E.exitWith . toExitCode
+  E.exitWith . (^. exitCode')
 
 -- | The computation 'exitFailure' is equivalent to
 -- 'exitWith' @(@'exitCode exitfail'@)@,
@@ -159,7 +172,7 @@ readProcessWithExitCode ::
   -> String
   -> IO (ExitCode, String, String)
 readProcessWithExitCode p args i =
-  fmap (\(e, t, u) -> (fromExitCode e, t, u)) (P.readProcessWithExitCode p args i)
+  fmap (\(e, t, u) -> (exitCode' # e, t, u)) (P.readProcessWithExitCode p args i)
 
 -- | Computation @system cmd@ returns the exit code produced when the
 -- operating system runs the shell command @cmd@.
@@ -182,7 +195,7 @@ system ::
   String
   -> IO ExitCode
 system =
-  fmap fromExitCode . P.system
+  fmap (exitCode' #) . P.system
 
 -- | The computation @'rawSystem' cmd args@ runs the operating system command
 -- @cmd@ in such a way that it receives as arguments the @args@ strings
@@ -195,7 +208,7 @@ rawSystem ::
   -> [String]
   -> IO ExitCode
 rawSystem z =
-  fmap fromExitCode . P.rawSystem z
+  fmap (exitCode' #) . P.rawSystem z
 
 -- | Waits for the specified process to terminate, and returns its exit code.
 
@@ -206,7 +219,7 @@ waitForProcess ::
   P.ProcessHandle
   -> IO ExitCode
 waitForProcess =
-  fmap fromExitCode . P.waitForProcess
+  fmap (exitCode' #) . P.waitForProcess
 
 
 -- | This is a non-blocking version of 'waitForProcess'.  If the process is
@@ -216,20 +229,4 @@ getProcessExitCode ::
   P.ProcessHandle
   -> IO (Maybe ExitCode)
 getProcessExitCode =
-  (fmap . fmap) fromExitCode . P.getProcessExitCode
-
--- not exported
-
-toExitCode ::
-  ExitCode
-  -> E.ExitCode
-toExitCode (ExitCode n) =
-  if n == 0 then E.ExitSuccess else E.ExitFailure n
-
-fromExitCode ::
-  E.ExitCode
-  -> ExitCode
-fromExitCode E.ExitSuccess =
-  success
-fromExitCode (E.ExitFailure n) =
-  exitCode # n
+  (fmap . fmap) (exitCode' #) . P.getProcessExitCode
