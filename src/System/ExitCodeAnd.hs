@@ -16,7 +16,8 @@ import Data.Functor.Alt(Alt((<!>)), liftF2)
 import Data.Functor.Bind(Bind((>>-)))
 import Data.Functor.Bind.Trans(BindTrans(liftB))
 import Data.Functor.Identity(Identity)
-import Data.Monoid(mappend)
+import Data.Semigroup(Semigroup((<>)))
+import Data.Monoid(Monoid(mappend, mempty))
 import System.ExitCode(ExitCode, isSuccess, success)
 import System.IO(IO)
 
@@ -28,6 +29,23 @@ type ExitCodeAnd a =
 
 type IOExitCodeAndT a =
   ExitCodeAndT IO a
+
+instance Monad f => Semigroup (ExitCodeAndT f a) where
+  ExitCodeAndT a <> ExitCodeAndT b =
+    ExitCodeAndT (
+      a >>= \(c, a') ->
+        if isSuccess c
+          then
+            return (c, a')
+          else
+            b
+    )
+
+instance (Monoid a, Monad f) => Monoid (ExitCodeAndT f a) where
+  mappend =
+    (<>)
+  mempty =
+    ExitCodeAndT (return (success, mempty))
 
 instance Functor f => Functor (ExitCodeAndT f) where
   fmap f (ExitCodeAndT x) =
@@ -44,15 +62,8 @@ instance Applicative f => Applicative (ExitCodeAndT f) where
     ExitCodeAndT (liftA2 (<*>) f a)
 
 instance (Functor f, Monad f) => Alt (ExitCodeAndT f) where
-  ExitCodeAndT a <!> ExitCodeAndT b =
-    ExitCodeAndT (
-      a >>= \(c, a') ->
-        if isSuccess c
-          then
-            return (c, a')
-          else
-            b
-    )
+  (<!>) =
+    (<>)
 
 instance Bind f => Bind (ExitCodeAndT f) where
   ExitCodeAndT x >>- f =
