@@ -27,58 +27,35 @@ module System.Command
 , success
 , isSuccess
 , isFailure
-, exitValue
 , exitWith
 , exitFailure
 , exitSuccess
-, (->>)
-, (->>>)
-, (->->)
-, (<<-)
-, (<<<-)
-, (<-<-)
-, runExitCodes
-, traverseExitCodes
   -- * Process completion
 , waitForProcess
 , getProcessExitCode
 , P.terminateProcess
-  -- * Execution combinators
-, inDirectory
-, inDirectory'
 ) where
 
 import qualified System.Exit as E(exitWith, ExitCode(ExitSuccess, ExitFailure))
 import qualified System.Process as P(system, rawSystem, ProcessHandle, waitForProcess, getProcessExitCode, readProcessWithExitCode, shell, CreateProcess(..), createProcess, readProcess, terminateProcess, runInteractiveCommand, runInteractiveProcess, runProcess, StdStream(..), CmdSpec(..), runCommand, proc)
-import System.Directory(getCurrentDirectory, setCurrentDirectory)
+import Control.Exception(Exception, toException, fromException)
+import Control.Lens(Iso', iso, (#))
 import Data.Bool(Bool, not)
 import Data.Data(Data, Typeable)
-import Data.Function((.), const, flip)
+import Data.Function((.))
 import Data.Functor(Functor(fmap))
-import Data.List((++))
 import Data.Maybe(Maybe)
 import Data.Monoid(Monoid(mempty, mappend))
+import Data.Semigroup(Semigroup((<>)))
 import Data.String(String)
-import Control.Arrow(first)
-import Control.Exception(Exception, toException, fromException, finally)
-import Control.Monad(Monad(return), when, void, (>>))
 import System.IO(IO)
 import System.FilePath(FilePath)
-import Prelude(Read(readsPrec), Show(show), Eq((==)), Ord, Int)
-import Data.Foldable(Foldable(foldr))
+import Prelude(Read, Show, Eq((==)), Ord, Int)
 
 -- | The result of running a process
 newtype ExitCode =
   ExitCode Int
-  deriving (Eq, Ord, Data, Typeable)
-
-instance Read ExitCode where
-  readsPrec n s =
-    first exitCode `fmap` readsPrec n s
-
-instance Show ExitCode where
-  show (ExitCode n) =
-    if n == 0 then "ExitSuccess" else "ExitFailure " ++ show n
+  deriving (Eq, Ord, Data, Show, Read, Typeable)
 
 instance Exception ExitCode where
   toException =
@@ -86,25 +63,29 @@ instance Exception ExitCode where
   fromException =
     fmap fromExitCode . fromException
 
+instance Semigroup ExitCode where
+  (<>) =
+    mappend
+
 instance Monoid ExitCode where
   mempty =
     success
   a `mappend` b =
     if isSuccess a then b else a
 
--- | Construct a process result.
--- A value of @0@ denotes success, otherwise, failure.
+-- | The isomorphism between an @ExitCode@ and an @Int@.
 exitCode ::
-  Int
-  -> ExitCode
+  Iso' ExitCode Int
 exitCode =
-  ExitCode
+  iso
+    (\(ExitCode n) -> n)
+    ExitCode
 
 -- | Construct a process result with the value @0@.
 success ::
   ExitCode
 success =
-  exitCode 0
+  exitCode # 0
 
 -- | Returns true if the given process result was constructed with the value @0@, otherwise false.
 isSuccess ::
@@ -119,13 +100,6 @@ isFailure ::
   -> Bool
 isFailure =
   not . isSuccess
-
--- | Returns the value that the given process result was constructed with.
-exitValue ::
-  ExitCode
-  -> Int
-exitValue (ExitCode n) =
-  n
 
 -- | Computation 'exitWith' @code@ throws 'ExitCode' @code@.
 -- Normally this terminates the program, returning @code@ to the
@@ -160,7 +134,7 @@ exitWith =
 exitFailure ::
   IO a
 exitFailure =
-  exitWith (exitCode 1)
+  exitWith (exitCode # 1)
 
 -- | The computation 'exitSuccess' is equivalent to
 -- 'exitWith' 'success', It terminates the program
@@ -169,92 +143,6 @@ exitSuccess ::
   IO a
 exitSuccess =
   exitWith success
-
--- | Runs the first action.
---
--- Only if the result is successful, run the second action returning its result.
-(->>) ::
-  Monad m =>
-  m ExitCode
-  -> m ExitCode
-  -> m ExitCode
-a ->> b =
-  do a' <- a
-     if isSuccess a' then b else return a'
-
--- | Runs the first action.
---
--- Only if the result is successful, run the second action returning no result.
-(->>>) ::
-  (Monad m, Functor m) =>
-  m ExitCode
-  -> m a
-  -> m ()
-a ->>> b =
-  do a' <- a
-     when (isSuccess a') (void b) -- if isSuccess a' then b >> return () else return ()
-
--- | Runs the first action.
---
--- Only if the result is successful, run the second action returning the first action's result.
-(->->) ::
-  Monad m =>
-  m ExitCode
-  -> m a
-  -> m ExitCode
-a ->-> b =
-  do a' <- a
-     if isSuccess a' then b >> return a' else return a'
-
--- | Runs the second action.
---
--- Only if the result is successful, run the first action returning its result.
-(<<-) ::
-  Monad m =>
-  m ExitCode
-  -> m ExitCode
-  -> m ExitCode
-(<<-) =
-  flip (->>)
-
--- | Runs the second action.
---
--- Only if the result is successful, run the first action returning no result.
-(<<<-) ::
-  (Monad m, Functor m) =>
-  m a
-  -> m ExitCode
-  -> m ()
-(<<<-) =
-  flip (->>>)
-
--- | Runs the second action.
---
--- Only if the result is successful, run the first action returning the second action's result.
-(<-<-) ::
-  Monad m =>
-  m a
-  -> m ExitCode
-  -> m ExitCode
-(<-<-) =
-  flip (->->)
-
--- | Run the structure of actions stopping at the first failure.
-runExitCodes ::
-  (Monad m, Foldable f) =>
-  f (m ExitCode)
-  -> m ExitCode
-runExitCodes =
-  foldr (->>) (return success)
-
--- | Traverse the structure of actions stopping at the first failure.
-traverseExitCodes ::
-  (Monad m, Foldable f, Functor f) =>
-  (a -> m ExitCode)
-  -> f a
-  -> m ExitCode
-traverseExitCodes f =
-  runExitCodes . fmap f
 
 -- | readProcessWithExitCode creates an external process, reads its
 -- standard output and standard error strictly, waits until the process
@@ -330,21 +218,6 @@ getProcessExitCode ::
 getProcessExitCode =
   (fmap . fmap) fromExitCode . P.getProcessExitCode
 
-inDirectory ::
-  FilePath
-  -> (FilePath -> IO a)
-  -> IO a
-inDirectory d k =
-  do c <- getCurrentDirectory
-     setCurrentDirectory d
-     k c `finally` setCurrentDirectory c
-
-inDirectory' ::
-  FilePath
-  -> IO a
-  -> IO a
-inDirectory' p =
-  inDirectory p . const
 -- not exported
 
 toExitCode ::
@@ -359,4 +232,4 @@ fromExitCode ::
 fromExitCode E.ExitSuccess =
   success
 fromExitCode (E.ExitFailure n) =
-  exitCode n
+  exitCode # n
