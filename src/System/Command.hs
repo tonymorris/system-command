@@ -30,7 +30,7 @@ module System.Command {-(
 
 import qualified System.Exit as E(exitWith)
 import qualified System.Process as P(system, rawSystem, ProcessHandle, waitForProcess, getProcessExitCode, readProcessWithExitCode, shell, CreateProcess(..), createProcess, readProcess, terminateProcess, runInteractiveCommand, runInteractiveProcess, runProcess, StdStream(..), CmdSpec(..), runCommand, proc)
-import Control.Lens((#), (^.))
+import Control.Lens((#), (^.), from)
 import Data.Function((.))
 import Data.Functor(Functor(fmap))
 import Data.Maybe(Maybe)
@@ -67,14 +67,13 @@ exitWith ::
 exitWith =
   E.exitWith . (iExitCode #)
 
-               {-
 -- | The computation 'exitFailure' is equivalent to
 -- 'exitWith' @(@'exitCode exitfail'@)@,
 -- where /exitfail/ is implementation-dependent.
 exitFailure ::
   IO a
 exitFailure =
-  exitWith (from failure # 1)
+  exitWith (from empty # 1)
 
 -- | The computation 'exitSuccess' is equivalent to
 -- 'exitWith' 'success', It terminates the program
@@ -82,8 +81,8 @@ exitFailure =
 exitSuccess ::
   IO a
 exitSuccess =
-  exitWith success
-
+  exitWith success'
+                   {-
 -- | readProcessWithExitCode creates an external process, reads its
 -- standard output and standard error strictly, waits until the process
 -- terminates, and then returns the 'ExitCode' of the process,

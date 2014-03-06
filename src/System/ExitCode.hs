@@ -239,7 +239,7 @@ instance MMonad ExitCodeT where
     ExitCodeT (let ExitCodeT r = f x in liftM join r)
 
 iExitCode ::
-  Iso E.ExitCode E.ExitCode (ExitCode ()) (ExitCode a)
+  Iso E.ExitCode E.ExitCode ExitCode' (ExitCode a)
 iExitCode =
   iso
     (\x -> case x of
