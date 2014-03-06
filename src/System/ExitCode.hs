@@ -29,6 +29,7 @@ import Data.Functor.Bind.Trans(BindTrans(liftB))
 import Data.Functor.Extend(Extend(duplicated))
 import Data.Maybe(Maybe(Just, Nothing))
 import Data.Semigroup(Semigroup((<>)))
+import System.IO(IO)
 import Prelude(Read, Show, Eq((==)), Ord, Int)
 
 -- | The result of running a process
@@ -141,6 +142,9 @@ isSuccess =
 newtype ExitCodeT f a =
   ExitCodeT (f (ExitCode a))
 
+type IOExitCode a =
+  ExitCodeT IO a
+
 instance Apply f => Semigroup (ExitCodeT f a) where
   ExitCodeT x <> ExitCodeT y =
     ExitCodeT (liftF2 (<>) x y)
@@ -200,3 +204,10 @@ instance MonadTrans ExitCodeT where
 instance BindTrans ExitCodeT where
   liftB =
     ExitCodeT . fmap ExitSuccess
+
+-- Iso' ExitCode' E.ExitCode
+-- Iso' ExitCode (ExitCodeT Identity)
+-- Iso' (ExitCodeT f a) (f (ExitCode a))
+-- onSuccess :: f a -> ExitCodeT f b -> f ()
+-- onFailure :: f a -> ExitCodeT f b -> f ()
+
