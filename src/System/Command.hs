@@ -1,7 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module System.Command {-
-(
+module System.Command {-(
   -- * Running sub-processes
   P.createProcess
 , P.shell
@@ -27,7 +26,7 @@ module System.Command {-
 , getProcessExitCode
 , P.terminateProcess
 , module EC
-) -} where {-
+)-} where
 
 import qualified System.Exit as E(exitWith)
 import qualified System.Process as P(system, rawSystem, ProcessHandle, waitForProcess, getProcessExitCode, readProcessWithExitCode, shell, CreateProcess(..), createProcess, readProcess, terminateProcess, runInteractiveCommand, runInteractiveProcess, runProcess, StdStream(..), CmdSpec(..), runCommand, proc)
@@ -39,7 +38,7 @@ import Data.String(String)
 import System.IO(IO)
 import System.FilePath(FilePath)
 import Prelude(Read, Show, Eq((==)), Ord, Int)
-import System.ExitCode as EC
+import System.ExitCode
 
 -- | Computation 'exitWith' @code@ throws 'ExitCode' @code@.
 -- Normally this terminates the program, returning @code@ to the
@@ -50,7 +49,7 @@ import System.ExitCode as EC
 -- called 'exitFailure'.
 -- A program that terminates successfully without calling 'exitWith'
 -- explicitly is treated as it it had called 'exitWith' 'ExitSuccess'.
---
+--                                                      on
 -- As an 'ExitCode' is not an 'IOError', 'exitWith' bypasses
 -- the error handling in the 'IO' monad and cannot be intercepted by
 -- 'catch' from the "Prelude".  However it is a 'SomeException', and can
@@ -63,18 +62,19 @@ import System.ExitCode as EC
 -- thread, 'exitWith' will throw an 'ExitException' as normal, but the
 -- exception will not cause the process itself to exit.
 exitWith ::
-  ExitCode
-  -> IO a
+  ExitCode a
+  -> IO t
 exitWith =
-  E.exitWith . (^. exitCode')
+  E.exitWith . (iExitCode #)
 
+               {-
 -- | The computation 'exitFailure' is equivalent to
 -- 'exitWith' @(@'exitCode exitfail'@)@,
 -- where /exitfail/ is implementation-dependent.
 exitFailure ::
   IO a
 exitFailure =
-  exitWith (exitCode # 1)
+  exitWith (from failure # 1)
 
 -- | The computation 'exitSuccess' is equivalent to
 -- 'exitWith' 'success', It terminates the program

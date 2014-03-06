@@ -30,7 +30,7 @@ module System.ExitCode (
 -- ExitCode, ExitCode', failure, success, empty, success', isFailure, isSuccess, ExitCodeT, ExitCodeT', IOExitCode, IOExitCode', iExitCode, iExitCodeT, uExitCodeT, onSuccess, onFailure
 
 import Control.Applicative(Applicative((<*>), pure))
-import Control.Lens(Prism', Iso', prism', iso, (#), isn't)
+import Control.Lens(Prism', Iso', Iso, prism', iso, (#), isn't)
 import Control.Monad(Monad((>>=), return), liftM, join)
 import Control.Monad.Trans.Class(MonadTrans(lift))
 import Control.Monad.Morph(MFunctor(hoist), MMonad(embed))
@@ -239,15 +239,15 @@ instance MMonad ExitCodeT where
     ExitCodeT (let ExitCodeT r = f x in liftM join r)
 
 iExitCode ::
-  Iso' ExitCode' E.ExitCode
+  Iso E.ExitCode E.ExitCode (ExitCode ()) (ExitCode a)
 iExitCode =
   iso
     (\x -> case x of
-             ExitFailure n -> E.ExitFailure n
-             ExitSuccess _ -> E.ExitSuccess)
-    (\x -> case x of
              E.ExitSuccess -> ExitSuccess ()
              E.ExitFailure n -> if n == 0 then ExitSuccess () else ExitFailure n)
+    (\x -> case x of
+             ExitFailure n -> E.ExitFailure n
+             ExitSuccess _ -> E.ExitSuccess)
 
 iExitCodeT ::
   Iso' (ExitCode a) (ExitCodeT Identity a)
