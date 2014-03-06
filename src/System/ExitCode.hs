@@ -2,35 +2,54 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module System.ExitCode {-(
-  -- * Data Type
+module System.ExitCode (
+  -- * Data Types
   ExitCode
-  -- * ExitCode combinators
-, exitCode
-, exitCode'
+, ExitCodeT
+  -- * Specialisations (type-alias)
+, ExitCode'
+, ExitCodeT'
+, IOExitCode
+, IOExitCode'
+  -- * Isomorphisms
+, iExitCode
+, iExitCodeT
+, uExitCodeT
+, empty
+  -- * Prisms
+, failure
 , success
-, isSuccess
+  -- * Combinators
+, success'
 , isFailure
-) -} where
+, isSuccess
+, onSuccess
+, onFailure
+) where
+
+-- ExitCode, ExitCode', failure, success, empty, success', isFailure, isSuccess, ExitCodeT, ExitCodeT', IOExitCode, IOExitCode', iExitCode, iExitCodeT, uExitCodeT, onSuccess, onFailure
 
 import Control.Applicative(Applicative((<*>), pure))
 import Control.Lens(Prism', Iso', prism', iso, (#), isn't)
-import Control.Monad(Monad((>>=), return), liftM)
+import Control.Monad(Monad((>>=), return), liftM, join)
 import Control.Monad.Trans.Class(MonadTrans(lift))
+import Control.Monad.Morph(MFunctor(hoist), MMonad(embed))
 import Control.Monad.IO.Class(MonadIO(liftIO))
 import Data.Bool(Bool, not)
 import Data.Data(Data, Typeable)
-import Data.Function((.))
+import Data.Function((.), const)
 import Data.Functor(Functor(fmap))
 import Data.Functor.Apply(Apply((<.>)), liftF2)
 import Data.Functor.Alt(Alt((<!>)))
 import Data.Functor.Bind(Bind((>>-)))
 import Data.Functor.Bind.Trans(BindTrans(liftB))
 import Data.Functor.Extend(Extend(duplicated))
+import Data.Functor.Identity(Identity(Identity))
 import Data.Maybe(Maybe(Just, Nothing))
 import Data.Semigroup(Semigroup((<>)))
 import System.IO(IO)
 import Prelude(Read, Show, Eq((==)), Ord, Int)
+import qualified System.Exit as E(ExitCode(ExitSuccess, ExitFailure))
 
 -- | The result of running a process
 data ExitCode a =
@@ -142,8 +161,14 @@ isSuccess =
 newtype ExitCodeT f a =
   ExitCodeT (f (ExitCode a))
 
+type ExitCodeT' f =
+  ExitCodeT f ()
+
 type IOExitCode a =
   ExitCodeT IO a
+
+type IOExitCode' =
+  IOExitCode ()
 
 instance Apply f => Semigroup (ExitCodeT f a) where
   ExitCodeT x <> ExitCodeT y =
@@ -205,9 +230,51 @@ instance BindTrans ExitCodeT where
   liftB =
     ExitCodeT . fmap ExitSuccess
 
--- Iso' ExitCode' E.ExitCode
--- Iso' ExitCode (ExitCodeT Identity)
--- Iso' (ExitCodeT f a) (f (ExitCode a))
--- onSuccess :: f a -> ExitCodeT f b -> f ()
--- onFailure :: f a -> ExitCodeT f b -> f ()
+instance MFunctor ExitCodeT where
+  hoist f (ExitCodeT x) =
+    ExitCodeT (f x)
 
+instance MMonad ExitCodeT where
+  embed f (ExitCodeT x) =
+    ExitCodeT (let ExitCodeT r = f x in liftM join r)
+
+iExitCode ::
+  Iso' ExitCode' E.ExitCode
+iExitCode =
+  iso
+    (\x -> case x of
+             ExitFailure n -> E.ExitFailure n
+             ExitSuccess _ -> E.ExitSuccess)
+    (\x -> case x of
+             E.ExitSuccess -> ExitSuccess ()
+             E.ExitFailure n -> if n == 0 then ExitSuccess () else ExitFailure n)
+
+iExitCodeT ::
+  Iso' (ExitCode a) (ExitCodeT Identity a)
+iExitCodeT =
+  iso
+    (ExitCodeT . Identity)
+    (\(ExitCodeT (Identity x)) -> x)
+
+uExitCodeT ::
+  Iso' (ExitCodeT f a) (f (ExitCode a))
+uExitCodeT =
+  iso
+    (\(ExitCodeT x) -> x)
+    ExitCodeT
+
+onSuccess ::
+  Monad f =>
+  f a
+  -> ExitCodeT f b
+  -> f ()
+onSuccess a (ExitCodeT x) =
+  x >>= \e -> if isSuccess e then liftM (const ()) a else return ()
+
+onFailure ::
+  Monad f =>
+  f a
+  -> ExitCodeT f b
+  -> f ()
+onFailure a (ExitCodeT x) =
+  x >>= \e -> if isFailure e then liftM (const ()) a else return ()

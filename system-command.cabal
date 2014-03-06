@@ -32,6 +32,7 @@ library
                     , lens >= 4.0
                     , semigroups >= 0.8
                     , semigroupoids >= 4.0
+                    , mmorph >= 1.0
 
   ghc-options:
                     -Wall
